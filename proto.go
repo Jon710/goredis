@@ -3,52 +3,43 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"log"
 
 	"github.com/tidwall/resp"
 )
 
 const (
-	CommandSET = "SET"
+	CommandSET    = "set"
+	CommandGET    = "get"
+	CommandHELLO  = "hello"
+	CommandClient = "client"
 )
 
-type Command interface{}
-
-type SetCommand struct {
-	key, val string
+type Command interface {
 }
 
-func parseCommand(raw string) (Command, error) {
-	rd := resp.NewReader(bytes.NewBufferString(raw))
+type SetCommand struct {
+	key, val []byte
+}
 
-	for {
-		v, _, err := rd.ReadValue()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
+type ClientCommand struct {
+	value string
+}
 
-		if v.Type() == resp.Array {
-			for _, value := range v.Array() {
-				switch value.String() {
-				case CommandSET:
-					fmt.Println(v.Array())
-					if len(v.Array()) != 3 {
-						return nil, fmt.Errorf("invalid command")
-					}
-					cmd := SetCommand{
-						key: v.Array()[1].String(),
-						val: v.Array()[2].String(),
-					}
-					return cmd, nil
-				default:
-				}
-			}
-		}
-		return nil, fmt.Errorf("invalid or unknown command")
+type HelloCommand struct {
+	value string
+}
+
+type GetCommand struct {
+	key []byte
+}
+
+func respWriteMap(m map[string]string) []byte {
+	buf := &bytes.Buffer{}
+	buf.WriteString("%" + fmt.Sprintf("%d\r\n", len(m)))
+	rw := resp.NewWriter(buf)
+	for k, v := range m {
+		rw.WriteString(k)
+		rw.WriteString(":" + v)
 	}
-	return nil, fmt.Errorf("invalid or unknown command")
+	return buf.Bytes()
 }
